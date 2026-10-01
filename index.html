@@ -19,12 +19,20 @@
   var APP_URL = 'https://script.google.com/macros/s/AKfycbyFEe8zFzjLTGB3UKcghztcKsxklpg1oLVFljju0mHeEm86JdkpNR1SC3Q1bR4vvb3m/exec';
   /* ▲▲▲ 其他地方都不用改 ▲▲▲ */
 
-  /* 把網址後面的 ?trip=… 或 ?owner=… 一起帶進去 */
-  document.getElementById('app').src = APP_URL + location.search;
+  /* 這個入口頁幫忙記住密語、擁有者連結和暱稱（iPhone 會清掉嵌入頁面裡的記憶，存在這一層才穩定） */
+  function mem(k, v) {
+    try { if (v === undefined) return localStorage.getItem('tp_' + k) || ''; if (v) localStorage.setItem('tp_' + k, v); else localStorage.removeItem('tp_' + k); } catch (e) { return ''; }
+  }
+  /* 把網址後面的 ?trip=… 或 ?owner=… 一起帶進去，再附上字體與記住的資料 */
+  var q = new URLSearchParams(location.search);
+  q.set('font', new URL('fonts/swei.css', location.href).href);
+  ['pass', 'owner', 'nick'].forEach(function (k) { var v = mem(k); if (v) q.set('mem_' + k, v); });
+  document.getElementById('app').src = APP_URL + '?' + q.toString();
 
   /* 裡面切換旅程時，同步更新這一頁的網址（擁有者連結的 owner 會自動從網址列拿掉，避免誤傳給旅伴） */
   window.addEventListener('message', function (e) {
     var d = e.data;
+    if (d && d.type === 'tripPlannerStore' && ['pass', 'owner', 'nick'].indexOf(d.key) >= 0) { mem(d.key, String(d.value || '')); return; }
     if (!d || d.type !== 'tripPlanner') return;
     var q = d.trip ? '?trip=' + encodeURIComponent(d.trip) : '';
     history.replaceState(null, '', location.pathname + q);
