@@ -10,16 +10,32 @@
 <style>
   html, body { margin: 0; height: 100%; background: #E7E8E2; }
   iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  /* Google 登入畫面（只有網站開啟 Google 登入、而且還沒登入時才會出現） */
+  #login { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: #E7E8E2; color: #1B2A2E; font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; letter-spacing: .04em; }
+  #login[hidden] { display: none; }
+  #login .box { width: min(360px, 100%); text-align: center; }
+  #login h1 { margin: 0 0 10px; font-size: 26px; font-weight: 700; }
+  #login p { margin: 0 0 22px; font-size: 16px; color: #5b6668; line-height: 1.7; }
+  #login .err { margin: 16px 0 0; color: #a0442c; font-size: 15px; min-height: 1.5em; }
+  #gbtn { display: flex; justify-content: center; min-height: 44px; }
+  @media (prefers-color-scheme: dark) { html, body, #login { background: #141B1D; color: #E8E6DF; } #login p { color: #9AA3A5; } }
 </style>
 </head>
 <body>
 <iframe id="app" title="旅遊規劃" allow="clipboard-read; clipboard-write"></iframe>
+<div id="login" hidden><div class="box">
+  <h1>旅遊規劃</h1>
+  <p>請使用受邀的 Google 帳號登入</p>
+  <div id="gbtn"></div>
+  <p class="err" id="loginErr"></p>
+</div></div>
 <script>
   /* ▼▼▼ 把下面這行引號裡的網址，換成你的 Apps Script 網頁網址（結尾是 /exec） ▼▼▼ */
-  var APP_URL = 'https://script.google.com/macros/s/AKfycbyFEe8zFzjLTGB3UKcghztcKsxklpg1oLVFljju0mHeEm86JdkpNR1SC3Q1bR4vvb3m/exec';
+  var APP_URL = 'https://script.google.com/macros/s/請貼上你的網址/exec';
   /* ▲▲▲ 其他地方都不用改 ▲▲▲ */
 
-  /* 這個入口頁幫忙記住密語、擁有者連結和暱稱（iPhone 會清掉嵌入頁面裡的記憶，存在這一層才穩定） */
+  /* 這個入口頁幫忙記住登入通行證（或密語）、擁有者連結和暱稱（iPhone 會清掉嵌入頁面裡的記憶，存在這一層才穩定） */
   function mem(k, v) {
     try { if (v === undefined) return localStorage.getItem('tp_' + k) || ''; if (v) localStorage.setItem('tp_' + k, v); else localStorage.removeItem('tp_' + k); } catch (e) { return ''; }
   }
@@ -27,12 +43,43 @@
   var q = new URLSearchParams(location.search);
   q.set('font', new URL('fonts/swei.css', location.href).href);
   ['pass', 'owner', 'nick'].forEach(function (k) { var v = mem(k); if (v) q.set('mem_' + k, v); });
-  document.getElementById('app').src = APP_URL + '?' + q.toString();
+  var frame = document.getElementById('app');
+  frame.src = APP_URL + '?' + q.toString();
+
+  /* Google 登入：網站要求登入時才載入 Google 的登入元件。登入後把憑證交給網站換成 30 天的通行證 */
+  var gsiLoaded = false;
+  function showLogin(clientId, error) {
+    document.getElementById('login').hidden = false;
+    document.getElementById('loginErr').textContent = error || '';
+    if (!clientId) { document.getElementById('loginErr').textContent = '網站尚未設定 Google 登入。'; return; }
+    function render() {
+      google.accounts.id.initialize({ client_id: clientId, callback: function (r) {
+        var q2 = new URLSearchParams(q.toString());
+        q2.delete('mem_pass'); q2.set('idt', r.credential);
+        document.getElementById('login').hidden = true;
+        frame.src = APP_URL + '?' + q2.toString();
+      } });
+      document.getElementById('gbtn').innerHTML = '';
+      google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', locale: 'zh-TW' });
+    }
+    if (gsiLoaded && window.google && google.accounts) return render();
+    var sc = document.createElement('script');
+    sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = function () { gsiLoaded = true; render(); };
+    document.head.appendChild(sc);
+  }
 
   /* 裡面切換旅程時，同步更新這一頁的網址（擁有者連結的 owner 會自動從網址列拿掉，避免誤傳給旅伴） */
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (d && d.type === 'tripPlannerStore' && ['pass', 'owner', 'nick'].indexOf(d.key) >= 0) { mem(d.key, String(d.value || '')); return; }
+    if (d && d.type === 'tripPlannerLogin') { mem('pass', ''); showLogin(d.clientId, d.error); return; }
+    if (d && d.type === 'tripPlannerLogout') {
+      mem('pass', ''); mem('owner', '');
+      try { google.accounts.id.disableAutoSelect(); } catch (err) {}
+      location.replace(location.pathname);
+      return;
+    }
     if (!d || d.type !== 'tripPlanner') return;
     var q = d.trip ? '?trip=' + encodeURIComponent(d.trip) : '';
     history.replaceState(null, '', location.pathname + q);
