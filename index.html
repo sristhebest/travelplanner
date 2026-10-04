@@ -48,7 +48,8 @@
 </style>
 </head>
 <body>
-<iframe id="app" title="旅遊規劃" allow="clipboard-read; clipboard-write"></iframe>
+<iframe id="app" title="旅遊規劃" allow="clipboard-read; clipboard-write"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-top-navigation-by-user-activation"></iframe>
 <div id="login" hidden>
   <div class="grain" id="grain"></div>
   <div class="mock" aria-hidden="true">
@@ -74,11 +75,35 @@
     try { if (v === undefined) return localStorage.getItem('tp_' + k) || ''; if (v) localStorage.setItem('tp_' + k, v); else localStorage.removeItem('tp_' + k); } catch (e) { return ''; }
   }
   /* 把網址後面的 ?trip=… 或 ?owner=… 一起帶進去，再附上字體與記住的資料 */
-  var q = new URLSearchParams(location.search);
-  q.set('font', new URL('fonts/swei.css', location.href).href);
-  ['pass', 'owner', 'nick'].forEach(function (k) { var v = mem(k); if (v) q.set('mem_' + k, v); });
+  var q;
+  function buildQuery() {
+    q = new URLSearchParams(location.search);
+    q.set('font', new URL('fonts/swei.css', location.href).href);
+    ['pass', 'owner', 'nick'].forEach(function (k) { var v = mem(k); if (v) q.set('mem_' + k, v); });
+  }
+  buildQuery();
   var frame = document.getElementById('app');
+  var loadedAt = Date.now();
   frame.src = APP_URL + '?' + q.toString();
+
+  /*
+   * Google 給網頁的連線憑證只有幾個小時的效期。過期後，Google 會試圖把整個畫面換成 Apps Script 的原始網址，
+   * 主畫面捷徑就會「打不開」或跳走。上面的 sandbox 擋住了這種自動跳轉；
+   * 這裡則在畫面放著超過一段時間、或網站回報連線失效時，悄悄重新載入裡面的網站（停在原本的旅程）。
+   */
+  var hiddenAt = 0, lastReload = 0;
+  function reloadApp() {
+    if (Date.now() - lastReload < 60000) return;
+    lastReload = loadedAt = Date.now();
+    buildQuery();
+    frame.src = APP_URL + '?' + q.toString();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    var away = hiddenAt ? Date.now() - hiddenAt : 0;
+    if (away > 30 * 60000 || Date.now() - loadedAt > 4 * 3600000) reloadApp();
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted && Date.now() - loadedAt > 30 * 60000) reloadApp(); });
 
   /* Google 登入：網站要求登入時才載入 Google 的登入元件。登入後把憑證交給網站換成 30 天的通行證 */
   var gsiLoaded = false;
@@ -117,6 +142,7 @@
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (d && d.type === 'tripPlannerStore' && ['pass', 'owner', 'nick'].indexOf(d.key) >= 0) { mem(d.key, String(d.value || '')); return; }
+    if (d && d.type === 'tripPlannerStale') { if (navigator.onLine !== false) reloadApp(); return; }
     if (d && d.type === 'tripPlannerLogin') { mem('pass', ''); showLogin(d.clientId, d.error); return; }
     if (d && d.type === 'tripPlannerLogout') {
       mem('pass', ''); mem('owner', '');
