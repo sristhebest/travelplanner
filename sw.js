@@ -5,11 +5,11 @@
  * - 行程照片：離線備份頁用到的照片存起來，下次直接從手機裡拿
  * - offline.html：入口頁存下的行程備份
  */
-const SHELL = 'tp-shell-v2', IMG = 'tp-img', SNAP = 'tp-snap';
+const SHELL = 'tp-shell-v1', IMG = 'tp-img', SNAP = 'tp-snap';
 const IMG_MAX = 400;
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(SHELL).then(c => c.addAll(['./', 'config.js', 'fonts/swei.css', 'favicon.ico', 'icons/apple-touch-icon.png', 'icons/favicon.svg'])).catch(() => {}));
+  e.waitUntil(caches.open(SHELL).then(c => c.addAll(['./', 'fonts/swei.css', 'favicon.ico', 'icons/apple-touch-icon.png', 'icons/favicon.svg'])).catch(() => {}));
   self.skipWaiting();
 });
 self.addEventListener('activate', e => {
@@ -38,13 +38,6 @@ self.addEventListener('fetch', e => {
         if (res.ok) { const copy = res.clone(); caches.open(SHELL).then(c => c.put('./', copy)); }
         return res;
       }).catch(() => caches.open(SHELL).then(c => c.match('./'))));
-      return;
-    }
-    if (url.pathname.endsWith('/config.js')) {
-      e.respondWith(fetch(req).then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(SHELL).then(c => c.put('config.js', copy)); }
-        return res;
-      }).catch(() => caches.open(SHELL).then(c => c.match('config.js'))));
       return;
     }
     if (/\/(fonts|icons)\/|favicon\.ico$/.test(url.pathname)) {

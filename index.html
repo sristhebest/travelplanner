@@ -76,25 +76,10 @@
     <p class="err" id="loginErr"></p>
   </div>
 </div>
-<script src="config.js"></script>
 <script>
-  /* 防呆：這個檔案是放 GitHub 的入口頁；如果被誤貼進 Apps Script 的 Index.html，就直接提醒 */
-  if (/googleusercontent\.com$|script\.google\.com$/.test(location.hostname)) {
-    document.addEventListener('DOMContentLoaded', function () {
-      document.body.innerHTML = '<div style="max-width:440px;margin:22vh auto 0;padding:0 24px;font:16px/1.8 -apple-system,\'PingFang TC\',sans-serif;color:#1B2A2E;text-align:center">' +
-        '<b style="font-size:19px">Apps Script 裡放錯檔案了</b><br>這是放在 GitHub 的入口頁。請把 Apps Script 的 Index.html 換回網站本體（約四千行的那個檔案），再部署新版本。</div>';
-    });
-    throw new Error('wrapper pasted into Apps Script');
-  }
-  /* 網站網址寫在 config.js（只要設定一次）；這個檔案以後整個換掉也不用再改任何東西 */
-  var APP_URL = String(window.TRIP_APP_URL || '').trim();
-  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(APP_URL) || /請貼上/.test(APP_URL)) {
-    document.addEventListener('DOMContentLoaded', function () {
-      document.body.innerHTML = '<div style="max-width:420px;margin:22vh auto 0;padding:0 24px;font:16px/1.8 -apple-system,\'PingFang TC\',sans-serif;color:#1B2A2E;text-align:center">' +
-        '<b style="font-size:19px">還沒設定網站網址</b><br>請打開 GitHub 上的 <code>config.js</code>，把 Apps Script 的網頁網址（結尾是 /exec）貼進引號裡。</div>';
-    });
-    throw new Error('APP_URL not set');
-  }
+  /* ▼▼▼ 把下面這行引號裡的網址，換成你的 Apps Script 網頁網址（結尾是 /exec） ▼▼▼ */
+  var APP_URL = 'https://script.google.com/macros/s/請貼上你的網址/exec';
+  /* ▲▲▲ 其他地方都不用改 ▲▲▲ */
 
   /* 這個入口頁幫忙記住登入通行證（或密語）、擁有者連結和暱稱（iPhone 會清掉嵌入頁面裡的記憶，存在這一層才穩定） */
   function mem(k, v) {
@@ -225,11 +210,9 @@
     if (d && d.type === 'tripPlannerStale') { if (navigator.onLine !== false) reloadApp(); return; }
     if (d && d.type === 'tripPlannerLogin') { mem('pass', ''); showLogin(d.clientId, d.error); return; }
     if (d && d.type === 'tripPlannerLogout') {
-      mem('pass', ''); mem('owner', ''); mem('nick', '');
+      mem('pass', ''); mem('owner', '');
       try { google.accounts.id.disableAutoSelect(); } catch (err) {}
-      /* 登出時一併清掉這台裝置上的離線備份與照片，換別人用也看不到 */
-      var bye = function () { location.replace(location.pathname); };
-      if (window.caches) Promise.all(['tp-snap', 'tp-img'].map(function (k) { return caches.delete(k); })).then(bye, bye); else bye();
+      location.replace(location.pathname);
       return;
     }
     if (!d || d.type !== 'tripPlanner') return;
