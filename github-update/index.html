@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>旅遊規劃</title>
+<meta name="theme-color" content="#E7E8E2">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="旅遊規劃">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  html, body { margin: 0; height: 100%; background: #E7E8E2; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  /* Google 登入畫面：背後是總覽頁的頁首（模糊），中央一張登入面板 */
+  :root { --paper:#E7E8E2; --panel:#F4F4F0; --sunk:#DDDFD7; --ink:#1B2A2E; --ink2:#5b6668; --rule:#cfd2ca; --warn:#a0442c; }
+  @media (prefers-color-scheme: dark) { :root { --paper:#141B1D; --panel:#1B2427; --sunk:#0F1517; --ink:#E8E6DF; --ink2:#9AA3A5; --rule:#2c3639; --warn:#e08a6f; } }
+  #login { position: fixed; inset: 0; z-index: 10; overflow: hidden; background: var(--paper); color: var(--ink);
+    font-family: "Swei Spring", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; letter-spacing: .06em; }
+  #login[hidden] { display: none; }
+  #login .grain { position: absolute; inset: 0; background-size: 128px 128px; }
+  /* 背景：總覽頁頁首的樣子 */
+  .mock-hd { max-width: 1080px; margin: 0 auto; padding: 36px 24px 0; }
+  .mock-hd .sp { height: 27px; }
+  .mock-row { display: flex; align-items: center; justify-content: space-between; }
+  .mock-row h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: .05em; line-height: 1.35; }
+  .mock-btn { padding: 8px 16px; border-radius: 3px; background: var(--ink); color: var(--paper); font-size: 16px; }
+  .mock-line { height: 72px; border-bottom: 1px solid var(--rule); }
+  .mock-grid { max-width: 1080px; margin: 0 auto; padding: 30px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 26px; }
+  .mock-card { background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+  .mock-card i { display: block; aspect-ratio: 1/1; background: var(--sunk); }
+  .mock-card b { display: block; height: 12px; margin: 16px 18px 8px; width: 55%; background: var(--sunk); border-radius: 2px; }
+  .mock-card em { display: block; height: 10px; margin: 0 18px 20px; width: 35%; background: var(--sunk); border-radius: 2px; }
+  /* 模糊的半透明層 */
+  .veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 40%, transparent);
+    -webkit-backdrop-filter: blur(4px) saturate(.9); backdrop-filter: blur(4px) saturate(.9); }
+  /* 登入面板 */
+  .panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 40px));
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; box-shadow: 0 24px 60px -28px rgba(27,42,46,.45);
+    padding: 34px 28px 30px; text-align: center; box-sizing: border-box; }
+  .panel img { width: 52px; height: 52px; border-radius: 12px; display: block; margin: 0 auto 14px; }
+  .panel h2 { margin: 0 0 24px; font-size: 22px; font-weight: 700; letter-spacing: .08em; }
+  #gbtn { display: flex; justify-content: center; min-height: 44px; }
+  .panel .err { margin: 14px 0 0; color: var(--warn); font-size: 15px; letter-spacing: .08em; }
+  .panel .err:empty { display: none; }
+  @media (max-width: 720px) {
+    .mock-hd { padding: 28px 20px 0; } .mock-row h1 { font-size: 26px; } .mock-btn { font-size: 15px; padding: 7px 12px; }
+    .mock-grid { grid-template-columns: 1fr 1fr; gap: 16px; padding: 22px 18px; }
+  }
+  /* 離線備份：連不上 Google 時，蓋在上面顯示上次儲存的行程 */
+  #offline { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #E7E8E2; z-index: 5; }
+  #offPill { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 6;
+    background: #1B2A2E; color: #F4F4F0; font: 500 13px/1 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; letter-spacing: .04em;
+    padding: 9px 14px; border-radius: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.18); white-space: nowrap; }
+  #warm { position: fixed; left: -9999px; top: 0; width: 390px; height: 844px; border: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<iframe id="app" title="旅遊規劃" allow="clipboard-read; clipboard-write"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-top-navigation-by-user-activation"></iframe>
+<div id="login" hidden>
+  <div class="grain" id="grain"></div>
+  <div class="mock" aria-hidden="true">
+    <div class="mock-hd"><div class="sp"></div><div class="mock-row"><h1>旅遊規劃</h1><span class="mock-btn">＋ 規劃新的旅程</span></div></div>
+    <div class="mock-line"></div>
+    <div class="mock-grid"><div class="mock-card"><i></i><b></b><em></em></div><div class="mock-card"><i></i><b></b><em></em></div><div class="mock-card"><i></i><b></b><em></em></div><div class="mock-card"><i></i><b></b><em></em></div></div>
+  </div>
+  <div class="veil"></div>
+  <div class="panel" role="dialog" aria-label="登入">
+    <img src="icons/apple-touch-icon.png" alt="">
+    <h2>旅遊規劃</h2>
+    <div id="gbtn"></div>
+    <p class="err" id="loginErr"></p>
+  </div>
+</div>
+<script>
+  /* ▼▼▼ 把下面這行引號裡的網址，換成你的 Apps Script 網頁網址（結尾是 /exec） ▼▼▼ */
+  var APP_URL = 'https://script.google.com/macros/s/請貼上你的網址/exec';
+  /* ▲▲▲ 其他地方都不用改 ▲▲▲ */
+
+  /* 這個入口頁幫忙記住登入通行證（或密語）、擁有者連結和暱稱（iPhone 會清掉嵌入頁面裡的記憶，存在這一層才穩定） */
+  function mem(k, v) {
+    try { if (v === undefined) return localStorage.getItem('tp_' + k) || ''; if (v) localStorage.setItem('tp_' + k, v); else localStorage.removeItem('tp_' + k); } catch (e) { return ''; }
+  }
+  /* 把網址後面的 ?trip=… 或 ?owner=… 一起帶進去，再附上字體與記住的資料 */
+  var q;
+  function buildQuery() {
+    q = new URLSearchParams(location.search);
+    q.set('font', new URL('fonts/swei.css', location.href).href);
+    ['pass', 'owner', 'nick'].forEach(function (k) { var v = mem(k); if (v) q.set('mem_' + k, v); });
+  }
+  buildQuery();
+  var frame = document.getElementById('app');
+  var loadedAt = Date.now();
+  frame.src = APP_URL + '?' + q.toString();
+
+  /*
+   * Google 給網頁的連線憑證只有幾個小時的效期。過期後，Google 會試圖把整個畫面換成 Apps Script 的原始網址，
+   * 主畫面捷徑就會「打不開」或跳走。上面的 sandbox 擋住了這種自動跳轉；
+   * 這裡則在畫面放著超過一段時間、或網站回報連線失效時，悄悄重新載入裡面的網站（停在原本的旅程）。
+   */
+  var hiddenAt = 0, lastReload = 0;
+  function reloadApp() {
+    if (navigator.onLine === false || Date.now() - lastReload < 60000) return;
+    ready = false; clearTimeout(waitT); waitT = setTimeout(showOffline, 15000);
+    lastReload = loadedAt = Date.now();
+    buildQuery();
+    frame.src = APP_URL + '?' + q.toString();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    var away = hiddenAt ? Date.now() - hiddenAt : 0;
+    if (away > 30 * 60000 || Date.now() - loadedAt > 4 * 3600000) reloadApp();
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted && Date.now() - loadedAt > 30 * 60000) reloadApp(); });
+
+  /*
+   * 離線備份：網站每次畫好行程，就把「行程」頁的靜態備份交給這一頁，存在瀏覽器的離線空間（連同照片與字體）。
+   * 打開時如果沒有網路、或 15 秒內連不上 Google，就先顯示備份；網路恢復、網站載入完成後自動換回來。
+   */
+  var SNAP = 'tp-snap', ready = false, offFrame = null, pill = null, waitT = null;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+  function curTrip() { return new URLSearchParams(location.search).get('trip') || ''; }
+  function snapUrl(trip) { return new URL('offline.html?' + (trip ? 'trip=' + encodeURIComponent(trip) : 'latest=1'), location.href).href; }
+  function fmtTime(t) { var d = new Date(+t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function showOffline() {
+    if (ready || offFrame || !window.caches) return;
+    var trip = curTrip();
+    caches.open(SNAP).then(function (c) {
+      return c.match(snapUrl(trip)).then(function (r) { return r ? { r: r, url: snapUrl(trip) } : c.match(snapUrl('')).then(function (r2) { return r2 ? { r: r2, url: snapUrl('') } : null; }); });
+    }).then(function (hit) {
+      if (!hit || ready || offFrame) return;
+      offFrame = document.createElement('iframe');
+      offFrame.id = 'offline'; offFrame.title = '離線備份';
+      offFrame.src = hit.url;
+      document.body.appendChild(offFrame);
+      pill = document.createElement('div'); pill.id = 'offPill';
+      var at = hit.r.headers.get('x-saved-at');
+      pill.textContent = (navigator.onLine === false ? '離線中' : '網路不穩') + '・顯示 ' + (at ? fmtTime(at) : '上次') + ' 儲存的行程';
+      document.body.appendChild(pill);
+    }).catch(function () {});
+  }
+  function hideOffline() {
+    if (offFrame) { offFrame.remove(); offFrame = null; }
+    if (pill) { pill.remove(); pill = null; }
+  }
+  if (navigator.onLine === false) showOffline(); else waitT = setTimeout(showOffline, 15000);
+  window.addEventListener('online', function () { if (offFrame || !ready) { lastReload = 0; reloadApp(); } });
+  window.addEventListener('offline', function () { if (pill) pill.textContent = pill.textContent.replace('網路不穩', '離線中'); });
+  /* 收到備份：存起來；隔一陣子在背景「預看」一次，讓照片和字體也存進離線空間 */
+  var warmT = null;
+  function saveSnap(d) {
+    if (!window.caches || !d.html || !d.trip) return;
+    var now = String(Date.now());
+    var res = function () { return new Response(d.html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'x-saved-at': now } }); };
+    caches.open(SNAP).then(function (c) { return Promise.all([c.put(snapUrl(d.trip), res()), c.put(snapUrl(''), res())]); }).then(function () {
+      try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
+      clearTimeout(warmT);
+      warmT = setTimeout(function () {
+        var w = document.getElementById('warm');
+        if (!w) { w = document.createElement('iframe'); w.id = 'warm'; w.setAttribute('aria-hidden', 'true'); w.tabIndex = -1; document.body.appendChild(w); }
+        w.src = snapUrl(d.trip) + '&warm=' + now;
+        setTimeout(function () { if (w.parentNode) w.remove(); }, 60000);
+      }, 8000);
+    }).catch(function () {});
+  }
+
+  /* Google 登入：網站要求登入時才載入 Google 的登入元件。登入後把憑證交給網站換成 30 天的通行證 */
+  var gsiLoaded = false;
+  function showLogin(clientId, error) {
+    if (!document.getElementById('sweiCss')) {
+      var l = document.createElement('link'); l.id = 'sweiCss'; l.rel = 'stylesheet'; l.href = new URL('fonts/swei.css', location.href).href; document.head.appendChild(l);
+      try {
+        var n = 256, c = document.createElement('canvas'); c.width = c.height = n;
+        var g = c.getContext('2d'), img = g.createImageData(n, n), d = img.data;
+        for (var i = 0; i < d.length; i += 4) { var r = Math.random(); d[i] = 96; d[i + 1] = 84; d[i + 2] = 62; d[i + 3] = Math.round(r * r * 26); }
+        g.putImageData(img, 0, 0);
+        document.getElementById('grain').style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')';
+      } catch (err) {}
+    }
+    document.getElementById('login').hidden = false;
+    document.getElementById('loginErr').textContent = error || '';
+    if (!clientId) { document.getElementById('loginErr').textContent = '網站尚未設定 Google 登入。'; return; }
+    function render() {
+      google.accounts.id.initialize({ client_id: clientId, callback: function (r) {
+        var q2 = new URLSearchParams(q.toString());
+        q2.delete('mem_pass'); q2.set('idt', r.credential);
+        document.getElementById('login').hidden = true;
+        frame.src = APP_URL + '?' + q2.toString();
+      } });
+      document.getElementById('gbtn').innerHTML = '';
+      google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', locale: 'zh-TW', width: 260 });
+    }
+    if (gsiLoaded && window.google && google.accounts) return render();
+    var sc = document.createElement('script');
+    sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = function () { gsiLoaded = true; render(); };
+    document.head.appendChild(sc);
+  }
+
+  /* 裡面切換旅程時，同步更新這一頁的網址（擁有者連結的 owner 會自動從網址列拿掉，避免誤傳給旅伴） */
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (d && d.type === 'tripPlannerStore' && ['pass', 'owner', 'nick'].indexOf(d.key) >= 0) { mem(d.key, String(d.value || '')); return; }
+    if (d && d.type === 'tripPlannerReady') { ready = true; clearTimeout(waitT); hideOffline(); return; }
+    if (d && d.type === 'tripPlannerSnap') { if (/\.googleusercontent\.com$/.test(e.origin)) saveSnap(d); return; }
+    if (d && d.type === 'tripPlannerStale') { if (navigator.onLine !== false) reloadApp(); return; }
+    if (d && d.type === 'tripPlannerLogin') { mem('pass', ''); showLogin(d.clientId, d.error); return; }
+    if (d && d.type === 'tripPlannerLogout') {
+      mem('pass', ''); mem('owner', '');
+      try { google.accounts.id.disableAutoSelect(); } catch (err) {}
+      location.replace(location.pathname);
+      return;
+    }
+    if (!d || d.type !== 'tripPlanner') return;
+    var q = d.trip ? '?trip=' + encodeURIComponent(d.trip) : '';
+    history.replaceState(null, '', location.pathname + q);
+  });
+</script>
+</body>
+</html>
